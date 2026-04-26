@@ -1,12 +1,12 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/ui/Navbar";
 import { toast } from "sonner";
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
 
-export default function AuthPage() {
+function AuthPageContent() {
   const params = useSearchParams();
   const router = useRouter();
   const [tab, setTab] = useState<"signin" | "signup">(
@@ -66,7 +66,6 @@ export default function AuthPage() {
         padding: 24,
       }}>
         <div style={{ position: "relative" }}>
-          {/* Background glow */}
           <div style={{
             position: "absolute",
             top: "50%",
@@ -94,7 +93,6 @@ export default function AuthPage() {
               </p>
             </div>
 
-            {/* Tabs */}
             <div style={{
               display: "flex",
               background: "var(--bg-elevated)",
@@ -235,5 +233,13 @@ function InputField({
         }}
       />
     </div>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: "100vh", background: "var(--bg-primary)" }} />}>
+      <AuthPageContent />
+    </Suspense>
   );
 }

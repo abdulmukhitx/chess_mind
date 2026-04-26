@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/ui/Navbar";
 import { ChessGame } from "@/components/chess/ChessGame";
@@ -15,7 +15,7 @@ const AI_LEVELS = [
   { value: 20, label: "Grandmaster", desc: "Maximum difficulty" },
 ];
 
-export default function PlayPage() {
+function PlayPageContent() {
   const params = useSearchParams();
   const [mode, setMode] = useState<GameMode | null>(null);
   const [aiLevel, setAiLevel] = useState(5);
@@ -127,7 +127,6 @@ export default function PlayPage() {
           />
         </div>
 
-        {/* AI level selector */}
         {mode === "ai" && (
           <div className="glass-card" style={{ padding: 24, marginBottom: 24 }}>
             <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
@@ -218,5 +217,13 @@ function ModeCard({
       </div>
       <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>{desc}</div>
     </button>
+  );
+}
+
+export default function PlayPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: "100vh", background: "var(--bg-primary)" }} />}>
+      <PlayPageContent />
+    </Suspense>
   );
 }
