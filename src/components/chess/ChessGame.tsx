@@ -4,19 +4,11 @@ import { Chessboard } from "react-chessboard";
 import { useChessGame } from "@/hooks/useChessGame";
 import { useChessSound } from "@/hooks/useChessSound";
 import { AICoach } from "./AICoach";
-import { Brain, RotateCcw, Clock } from "lucide-react";
+import { Brain, RotateCcw } from "lucide-react";
 import type { GameMode, TimeControl } from "@/hooks/useChessGame";
 import { Chess } from "chess.js";
 
 const PIECE_VALUES: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
-
-const TIME_CONTROLS: { label: string; tc: TimeControl }[] = [
-  { label: "3+0", tc: { minutes: 3, increment: 0 } },
-  { label: "5+0", tc: { minutes: 5, increment: 0 } },
-  { label: "10+0", tc: { minutes: 10, increment: 0 } },
-  { label: "10+5", tc: { minutes: 10, increment: 5 } },
-  { label: "∞", tc: { minutes: 999, increment: 0 } },
-];
 
 function formatTime(seconds: number) {
   if (seconds >= 3600) return "∞";
@@ -30,12 +22,10 @@ interface ChessGameProps {
   aiLevel?: number;
   roomId?: string;
   userId?: string;
+  timeControl?: TimeControl;
 }
 
-export function ChessGame({ mode, aiLevel = 5, roomId, userId }: ChessGameProps) {
-  const [timeControl, setTimeControl] = useState<TimeControl>({ minutes: 10, increment: 0 });
-  const [selectedTC, setSelectedTC] = useState("10+0");
-
+export function ChessGame({ mode, aiLevel = 5, roomId, userId, timeControl }: ChessGameProps) {
   const {
     fen, history, status, playerColor, capturedWhite, capturedBlack,
     lastMove, isAIThinking, gameResult, pgn, makeMove, resetGame,
@@ -47,6 +37,15 @@ export function ChessGame({ mode, aiLevel = 5, roomId, userId }: ChessGameProps)
   const [boardOrientation, setBoardOrientation] = useState<"white" | "black">(playerColor);
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [moveSquares, setMoveSquares] = useState<Record<string, React.CSSProperties>>({});
+  const [prevStatus, setPrevStatus] = useState(status);
+
+  if (status === "ended" && prevStatus !== "ended") {
+    setPrevStatus("ended");
+    playEnd();
+  }
+  if (status !== "ended" && prevStatus === "ended") {
+    setPrevStatus(status);
+  }
 
   const calcAdvantage = () => {
     const whiteVal = capturedBlack.reduce((sum, p) => sum + (PIECE_VALUES[p] || 0), 0);
@@ -81,10 +80,8 @@ export function ChessGame({ mode, aiLevel = 5, roomId, userId }: ChessGameProps)
     const promotion = piece[1]?.toLowerCase() === "p" &&
       ((to[1] === "8" && piece[0] === "w") || (to[1] === "1" && piece[0] === "b"))
       ? "q" : undefined;
-
     const chess = new Chess(fen);
     const isCapture = !!chess.get(to as any);
-
     const result = makeMove({ from, to, promotion });
     if (result) {
       if (isCapture) playCapture();
@@ -95,16 +92,6 @@ export function ChessGame({ mode, aiLevel = 5, roomId, userId }: ChessGameProps)
     }
     return result;
   }, [makeMove, fen, playMove, playCapture, playCheck]);
-
-  // Play end sound when game ends
-  const [prevStatus, setPrevStatus] = useState(status);
-  if (status === "ended" && prevStatus !== "ended") {
-    setPrevStatus("ended");
-    playEnd();
-  }
-  if (status !== "ended" && prevStatus === "ended") {
-    setPrevStatus(status);
-  }
 
   const handleSquareClick = useCallback((square: string) => {
     if (!isMyTurn || status !== "playing") return;
@@ -156,92 +143,60 @@ export function ChessGame({ mode, aiLevel = 5, roomId, userId }: ChessGameProps)
 
   const isWin = gameResult?.includes(playerColor === "white" ? "White" : "Black");
   const isDraw = gameResult?.includes("Draw");
-  const isTimerActive = timeControl.minutes < 999;
+  const isTimerActive = timeControl && timeControl.minutes < 999;
+  const whiteClockLow = !!isTimerActive && whiteTime < 30;
+  const blackClockLow = !!isTimerActive && blackTime < 30;
 
-  // Clock colors
-  const whiteClockLow = whiteTime < 30 && isTimerActive;
-  const blackClockLow = blackTime < 30 && isTimerActive;
+  const boardWidth = Math.min(560, typeof window !== "undefined" ? window.innerWidth * 0.85 : 560);
 
   return (
     <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "center" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
 
-        {/* Black clock */}
+      {/* Board + clocks */}
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+
+        {/* Left side clocks */}
         {isTimerActive && (
-          <ClockDisplay
-            time={blackTime}
-            active={status === "playing" && turn === "b"}
-            low={blackClockLow}
-          />
+          <div style={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            height: boardWidth + 64,
+            paddingTop: 32,
+            paddingBottom: 32,
+          }}>
+            <ClockDisplay time={blackTime} active={status === "playing" && turn === "b"} low={blackClockLow} />
+            <ClockDisplay time={whiteTime} active={status === "playing" && turn === "w"} low={whiteClockLow} />
+          </div>
         )}
 
-        <CapturedPieces pieces={capturedBlack} advantage={advantage.white > 0 ? advantage.white : 0} />
-
-        <div className="chess-board-wrapper" style={{ width: "min(560px, 90vw)" }}>
-          <Chessboard
-            id="main-board"
-            position={fen}
-            onPieceDrop={handleMove}
-            onSquareClick={handleSquareClick}
-            onPieceDragBegin={handlePieceDragBegin}
-            onPieceDragEnd={handlePieceDragEnd}
-            boardOrientation={boardOrientation}
-            boardWidth={Math.min(560, typeof window !== "undefined" ? window.innerWidth * 0.9 : 560)}
-            customBoardStyle={{ borderRadius: "12px", boxShadow: "none" }}
-            customLightSquareStyle={{ backgroundColor: "#F0D9B5" }}
-            customDarkSquareStyle={{ backgroundColor: "#B58863" }}
-            customSquareStyles={customSquareStyles}
-            arePiecesDraggable={status === "playing" && isMyTurn && !isAIThinking}
-          />
+        {/* Board column */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <CapturedPieces pieces={capturedBlack} advantage={advantage.white > 0 ? advantage.white : 0} />
+          <div className="chess-board-wrapper">
+            <Chessboard
+              id="main-board"
+              position={fen}
+              onPieceDrop={handleMove}
+              onSquareClick={handleSquareClick}
+              onPieceDragBegin={handlePieceDragBegin}
+              onPieceDragEnd={handlePieceDragEnd}
+              boardOrientation={boardOrientation}
+              boardWidth={boardWidth}
+              customBoardStyle={{ borderRadius: "12px", boxShadow: "none" }}
+              customLightSquareStyle={{ backgroundColor: "#F0D9B5" }}
+              customDarkSquareStyle={{ backgroundColor: "#B58863" }}
+              customSquareStyles={customSquareStyles}
+              arePiecesDraggable={status === "playing" && isMyTurn && !isAIThinking}
+            />
+          </div>
+          <CapturedPieces pieces={capturedWhite} advantage={advantage.black > 0 ? advantage.black : 0} />
         </div>
-
-        <CapturedPieces pieces={capturedWhite} advantage={advantage.black > 0 ? advantage.black : 0} />
-
-        {/* White clock */}
-        {isTimerActive && (
-          <ClockDisplay
-            time={whiteTime}
-            active={status === "playing" && turn === "w"}
-            low={whiteClockLow}
-          />
-        )}
       </div>
 
       {/* Side panel */}
       <div style={{ width: 260, display: "flex", flexDirection: "column", gap: 12 }}>
 
-        {/* Time control selector */}
-        <div className="glass-card" style={{ padding: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-            <Clock size={14} style={{ color: "var(--gold)" }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Time Control
-            </span>
-          </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {TIME_CONTROLS.map(({ label, tc }) => (
-              <button
-                key={label}
-                onClick={() => { setSelectedTC(label); setTimeControl(tc); }}
-                style={{
-                  padding: "4px 10px",
-                  borderRadius: 6,
-                  border: `1px solid ${selectedTC === label ? "rgba(245,158,11,0.5)" : "var(--border)"}`,
-                  background: selectedTC === label ? "rgba(245,158,11,0.1)" : "var(--bg-elevated)",
-                  color: selectedTC === label ? "var(--gold)" : "var(--text-secondary)",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Status */}
         <div className="glass-card" style={{ padding: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <div style={{
@@ -280,12 +235,11 @@ export function ChessGame({ mode, aiLevel = 5, roomId, userId }: ChessGameProps)
           </div>
         </div>
 
-        {/* Move history */}
         <div className="glass-card" style={{ padding: 16, flex: 1 }}>
           <h3 style={{ fontSize: 12, fontWeight: 600, marginBottom: 10, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
             Move History
           </h3>
-          <div style={{ maxHeight: 200, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
+          <div style={{ maxHeight: 240, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
             {history.length === 0 ? (
               <p style={{ color: "var(--text-muted)", fontSize: 13 }}>No moves yet</p>
             ) : (
@@ -380,26 +334,20 @@ export function ChessGame({ mode, aiLevel = 5, roomId, userId }: ChessGameProps)
 function ClockDisplay({ time, active, low }: { time: number; active: boolean; low: boolean }) {
   return (
     <div style={{
-      display: "flex",
-      justifyContent: "flex-end",
-      width: "min(560px, 90vw)",
+      background: active ? (low ? "#EF4444" : "var(--bg-elevated)") : "var(--bg-card)",
+      border: `1px solid ${active ? (low ? "#EF4444" : "rgba(245,158,11,0.5)") : "var(--border)"}`,
+      borderRadius: 8,
+      padding: "8px 12px",
+      fontFamily: "'JetBrains Mono', monospace",
+      fontSize: 18,
+      fontWeight: 700,
+      color: active ? (low ? "white" : "var(--text-primary)") : "var(--text-muted)",
+      transition: "all 0.3s",
+      minWidth: 72,
+      textAlign: "center",
+      boxShadow: active && !low ? "0 0 8px rgba(245,158,11,0.15)" : "none",
     }}>
-      <div style={{
-        background: active ? (low ? "#EF4444" : "var(--bg-elevated)") : "var(--bg-card)",
-        border: `1px solid ${active ? (low ? "#EF4444" : "var(--gold)") : "var(--border)"}`,
-        borderRadius: 10,
-        padding: "8px 20px",
-        fontFamily: "'JetBrains Mono', monospace",
-        fontSize: 28,
-        fontWeight: 700,
-        color: active ? (low ? "white" : "var(--text-primary)") : "var(--text-muted)",
-        transition: "all 0.3s",
-        minWidth: 120,
-        textAlign: "center",
-        boxShadow: active && !low ? "0 0 12px rgba(245,158,11,0.2)" : "none",
-      }}>
-        {formatTime(time)}
-      </div>
+      {formatTime(time)}
     </div>
   );
 }

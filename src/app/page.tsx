@@ -159,7 +159,7 @@ export default function HomePage() {
         fontSize: 13,
       }}>
         <span style={{ fontFamily: "'Playfair Display', serif", color: "var(--gold)", fontWeight: 600 }}>ChessMind</span>
-        {" "}&copy; 2025 · Made with ♟ and AI
+        {" "}&copy; 2026 · Made with ❤️ by ChessMind
       </footer>
     </div>
   );
