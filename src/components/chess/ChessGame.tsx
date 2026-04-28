@@ -56,8 +56,8 @@ export function ChessGame({ mode, aiLevel = 5, roomId, userId }: ChessGameProps)
       const isCapture = chess.get(move.to as any);
       squares[move.to] = {
         background: isCapture
-            ? "radial-gradient(circle, rgba(255,255,255,0.35) 5%, transparent 5%)"
-            : "radial-gradient(circle, rgba(255,255,255,0.25) 25%, transparent 15%)",
+            ? "radial-gradient(circle, rgba(255, 255, 255, 0.66) 5%, transparent 5%)"
+            : "radial-gradient(circle, rgba(255, 255, 255, 0.67) 25%, transparent 15%)",
         borderRadius: "90%",
       };
     });
