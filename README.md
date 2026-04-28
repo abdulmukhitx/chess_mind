@@ -2,7 +2,7 @@
 
 > Play chess, get smarter. AI-powered coaching after every game.
 
-**Live Demo:** [chessmind.vercel.app](https://chessmind.vercel.app) ← (replace with your URL)  
+**Live Demo:** [(https://chessmind.vercel.app)](https://chess-mind-three.vercel.app/)  
 **Tech Stack:** Next.js 14 · TypeScript · Supabase · Claude AI · Stockfish
 
 ---
