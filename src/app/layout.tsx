@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import { Toaster } from "sonner";
+
 
 export const metadata: Metadata = {
   title: "ChessMind — Play, Learn, Improve",
@@ -37,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               },
             }}
           />
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>
