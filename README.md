@@ -192,4 +192,4 @@ ChessMind uses a freemium model:
 
 ---
 
-*Built for the Summer Incubator 2025 application*
+*Built for the Summer Incubator 2026 application*
