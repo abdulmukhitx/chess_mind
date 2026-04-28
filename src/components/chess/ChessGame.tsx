@@ -2,17 +2,28 @@
 import { useState, useCallback } from "react";
 import { Chessboard } from "react-chessboard";
 import { useChessGame } from "@/hooks/useChessGame";
+import { useChessSound } from "@/hooks/useChessSound";
 import { AICoach } from "./AICoach";
-import { Brain, RotateCcw } from "lucide-react";
-import type { GameMode } from "@/hooks/useChessGame";
+import { Brain, RotateCcw, Clock } from "lucide-react";
+import type { GameMode, TimeControl } from "@/hooks/useChessGame";
 import { Chess } from "chess.js";
 
-const PIECE_SYMBOLS: Record<string, string> = {
-  p: "♟", r: "♜", n: "♞", b: "♝", q: "♛", k: "♚",
-};
-const PIECE_VALUES: Record<string, number> = {
-  p: 1, n: 3, b: 3, r: 5, q: 9, k: 0,
-};
+const PIECE_VALUES: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+
+const TIME_CONTROLS: { label: string; tc: TimeControl }[] = [
+  { label: "3+0", tc: { minutes: 3, increment: 0 } },
+  { label: "5+0", tc: { minutes: 5, increment: 0 } },
+  { label: "10+0", tc: { minutes: 10, increment: 0 } },
+  { label: "10+5", tc: { minutes: 10, increment: 5 } },
+  { label: "∞", tc: { minutes: 999, increment: 0 } },
+];
+
+function formatTime(seconds: number) {
+  if (seconds >= 3600) return "∞";
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 interface ChessGameProps {
   mode: GameMode;
@@ -22,12 +33,16 @@ interface ChessGameProps {
 }
 
 export function ChessGame({ mode, aiLevel = 5, roomId, userId }: ChessGameProps) {
+  const [timeControl, setTimeControl] = useState<TimeControl>({ minutes: 10, increment: 0 });
+  const [selectedTC, setSelectedTC] = useState("10+0");
+
   const {
     fen, history, status, playerColor, capturedWhite, capturedBlack,
     lastMove, isAIThinking, gameResult, pgn, makeMove, resetGame,
-    isCheck, turn,
-  } = useChessGame({ mode, aiLevel, roomId, userId });
+    isCheck, turn, whiteTime, blackTime,
+  } = useChessGame({ mode, aiLevel, roomId, userId, timeControl });
 
+  const { playMove, playCapture, playCheck, playEnd } = useChessSound();
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [boardOrientation, setBoardOrientation] = useState<"white" | "black">(playerColor);
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
@@ -45,20 +60,18 @@ export function ChessGame({ mode, aiLevel = 5, roomId, userId }: ChessGameProps)
     (playerColor === "black" && turn === "b")
   );
 
-  // Get possible moves for a square
   const getMoveOptions = useCallback((square: string) => {
     const chess = new Chess(fen);
     const moves = chess.moves({ square: square as any, verbose: true });
     if (moves.length === 0) return {};
-
     const squares: Record<string, React.CSSProperties> = {};
     moves.forEach(move => {
       const isCapture = chess.get(move.to as any);
       squares[move.to] = {
         background: isCapture
-            ? "radial-gradient(circle, rgba(255, 255, 255, 0.66) 5%, transparent 5%)"
-            : "radial-gradient(circle, rgba(255, 255, 255, 0.67) 25%, transparent 15%)",
-        borderRadius: "90%",
+          ? "radial-gradient(circle, rgba(255,255,255,0.25) 52%, transparent 57%)"
+          : "radial-gradient(circle, rgba(255,255,255,0.35) 22%, transparent 26%)",
+        borderRadius: "50%",
       };
     });
     return squares;
@@ -68,35 +81,46 @@ export function ChessGame({ mode, aiLevel = 5, roomId, userId }: ChessGameProps)
     const promotion = piece[1]?.toLowerCase() === "p" &&
       ((to[1] === "8" && piece[0] === "w") || (to[1] === "1" && piece[0] === "b"))
       ? "q" : undefined;
+
+    const chess = new Chess(fen);
+    const isCapture = !!chess.get(to as any);
+
     const result = makeMove({ from, to, promotion });
     if (result) {
+      if (isCapture) playCapture();
+      else playMove();
+      if (chess.inCheck()) playCheck();
       setSelectedSquare(null);
       setMoveSquares({});
     }
     return result;
-  }, [makeMove]);
+  }, [makeMove, fen, playMove, playCapture, playCheck]);
+
+  // Play end sound when game ends
+  const [prevStatus, setPrevStatus] = useState(status);
+  if (status === "ended" && prevStatus !== "ended") {
+    setPrevStatus("ended");
+    playEnd();
+  }
+  if (status !== "ended" && prevStatus === "ended") {
+    setPrevStatus(status);
+  }
 
   const handleSquareClick = useCallback((square: string) => {
     if (!isMyTurn || status !== "playing") return;
-
     const chess = new Chess(fen);
     const piece = chess.get(square as any);
 
-    // If square already selected — try to move
     if (selectedSquare) {
       const moved = handleMove(selectedSquare, square, "");
-      if (moved) {
-        setSelectedSquare(null);
-        setMoveSquares({});
-        return;
-      }
+      if (moved) { setSelectedSquare(null); setMoveSquares({}); return; }
     }
 
-    // Only select own pieces
-    const isMyPiece = piece &&
-      ((playerColor === "white" && piece.color === "w") ||
-       (playerColor === "black" && piece.color === "b") ||
-       mode === "local");
+    const isMyPiece = piece && (
+      (playerColor === "white" && piece.color === "w") ||
+      (playerColor === "black" && piece.color === "b") ||
+      mode === "local"
+    );
 
     if (isMyPiece) {
       setSelectedSquare(square);
@@ -117,28 +141,39 @@ export function ChessGame({ mode, aiLevel = 5, roomId, userId }: ChessGameProps)
     setMoveSquares({});
   }, []);
 
-  // Build square styles
   const customSquareStyles: Record<string, React.CSSProperties> = { ...moveSquares };
-
   if (lastMove) {
     customSquareStyles[lastMove.from] = { backgroundColor: "rgba(173, 186, 89, 0.4)" };
     customSquareStyles[lastMove.to] = { backgroundColor: "rgba(173, 186, 89, 0.5)" };
   }
-
   if (selectedSquare) {
     customSquareStyles[selectedSquare] = {
-              backgroundColor: "rgba(255, 255, 255, 0.2)",
-              boxShadow: "inset 0 0 0 3px rgba(255, 255, 255, 0.7)",
+      backgroundColor: "rgba(255, 255, 255, 0.2)",
+      boxShadow: "inset 0 0 0 3px rgba(255, 255, 255, 0.7)",
       ...(moveSquares[selectedSquare] || {}),
     };
   }
 
   const isWin = gameResult?.includes(playerColor === "white" ? "White" : "Black");
   const isDraw = gameResult?.includes("Draw");
+  const isTimerActive = timeControl.minutes < 999;
+
+  // Clock colors
+  const whiteClockLow = whiteTime < 30 && isTimerActive;
+  const blackClockLow = blackTime < 30 && isTimerActive;
 
   return (
     <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "center" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+
+        {/* Black clock */}
+        {isTimerActive && (
+          <ClockDisplay
+            time={blackTime}
+            active={status === "playing" && turn === "b"}
+            low={blackClockLow}
+          />
+        )}
 
         <CapturedPieces pieces={capturedBlack} advantage={advantage.white > 0 ? advantage.white : 0} />
 
@@ -161,10 +196,52 @@ export function ChessGame({ mode, aiLevel = 5, roomId, userId }: ChessGameProps)
         </div>
 
         <CapturedPieces pieces={capturedWhite} advantage={advantage.black > 0 ? advantage.black : 0} />
+
+        {/* White clock */}
+        {isTimerActive && (
+          <ClockDisplay
+            time={whiteTime}
+            active={status === "playing" && turn === "w"}
+            low={whiteClockLow}
+          />
+        )}
       </div>
 
       {/* Side panel */}
       <div style={{ width: 260, display: "flex", flexDirection: "column", gap: 12 }}>
+
+        {/* Time control selector */}
+        <div className="glass-card" style={{ padding: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+            <Clock size={14} style={{ color: "var(--gold)" }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Time Control
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {TIME_CONTROLS.map(({ label, tc }) => (
+              <button
+                key={label}
+                onClick={() => { setSelectedTC(label); setTimeControl(tc); }}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  border: `1px solid ${selectedTC === label ? "rgba(245,158,11,0.5)" : "var(--border)"}`,
+                  background: selectedTC === label ? "rgba(245,158,11,0.1)" : "var(--bg-elevated)",
+                  color: selectedTC === label ? "var(--gold)" : "var(--text-secondary)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Status */}
         <div className="glass-card" style={{ padding: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <div style={{
@@ -203,11 +280,12 @@ export function ChessGame({ mode, aiLevel = 5, roomId, userId }: ChessGameProps)
           </div>
         </div>
 
+        {/* Move history */}
         <div className="glass-card" style={{ padding: 16, flex: 1 }}>
           <h3 style={{ fontSize: 12, fontWeight: 600, marginBottom: 10, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
             Move History
           </h3>
-          <div style={{ maxHeight: 240, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
+          <div style={{ maxHeight: 200, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
             {history.length === 0 ? (
               <p style={{ color: "var(--text-muted)", fontSize: 13 }}>No moves yet</p>
             ) : (
@@ -295,6 +373,33 @@ export function ChessGame({ mode, aiLevel = 5, roomId, userId }: ChessGameProps)
       {showAnalysis && (
         <AICoach pgn={pgn} playerColor={playerColor} onClose={() => setShowAnalysis(false)} />
       )}
+    </div>
+  );
+}
+
+function ClockDisplay({ time, active, low }: { time: number; active: boolean; low: boolean }) {
+  return (
+    <div style={{
+      display: "flex",
+      justifyContent: "flex-end",
+      width: "min(560px, 90vw)",
+    }}>
+      <div style={{
+        background: active ? (low ? "#EF4444" : "var(--bg-elevated)") : "var(--bg-card)",
+        border: `1px solid ${active ? (low ? "#EF4444" : "var(--gold)") : "var(--border)"}`,
+        borderRadius: 10,
+        padding: "8px 20px",
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 28,
+        fontWeight: 700,
+        color: active ? (low ? "white" : "var(--text-primary)") : "var(--text-muted)",
+        transition: "all 0.3s",
+        minWidth: 120,
+        textAlign: "center",
+        boxShadow: active && !low ? "0 0 12px rgba(245,158,11,0.2)" : "none",
+      }}>
+        {formatTime(time)}
+      </div>
     </div>
   );
 }

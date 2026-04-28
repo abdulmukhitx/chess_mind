@@ -6,14 +6,20 @@ import { supabase } from "@/lib/supabase";
 export type GameMode = "ai" | "multiplayer" | "local";
 export type GameStatus = "waiting" | "playing" | "ended";
 
+export interface TimeControl {
+  minutes: number;
+  increment: number;
+}
+
 interface UseChessGameProps {
   mode: GameMode;
   aiLevel?: number;
   roomId?: string;
   userId?: string;
+  timeControl?: TimeControl;
 }
 
-export function useChessGame({ mode, aiLevel = 5, roomId, userId }: UseChessGameProps) {
+export function useChessGame({ mode, aiLevel = 5, roomId, userId, timeControl }: UseChessGameProps) {
   const [chess] = useState(() => new Chess());
   const [fen, setFen] = useState(chess.fen());
   const [history, setHistory] = useState<Move[]>([]);
@@ -25,8 +31,46 @@ export function useChessGame({ mode, aiLevel = 5, roomId, userId }: UseChessGame
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [gameResult, setGameResult] = useState<string | null>(null);
   const [pgn, setPgn] = useState("");
+
+  // Timers
+  const initialTime = (timeControl?.minutes || 10) * 60;
+  const [whiteTime, setWhiteTime] = useState(initialTime);
+  const [blackTime, setBlackTime] = useState(initialTime);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
   const stockfishRef = useRef<Worker | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.realtime.channel> | null>(null);
+
+  // Timer logic
+  useEffect(() => {
+    if (status !== "playing" || !timeControl) return;
+
+    timerRef.current = setInterval(() => {
+      if (chess.turn() === "w") {
+        setWhiteTime(t => {
+          if (t <= 1) {
+            clearInterval(timerRef.current!);
+            setStatus("ended");
+            setGameResult("Black wins on time!");
+            return 0;
+          }
+          return t - 1;
+        });
+      } else {
+        setBlackTime(t => {
+          if (t <= 1) {
+            clearInterval(timerRef.current!);
+            setStatus("ended");
+            setGameResult("White wins on time!");
+            return 0;
+          }
+          return t - 1;
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(timerRef.current!);
+  }, [status, chess.turn(), timeControl]);
 
   // Initialize Stockfish
   useEffect(() => {
@@ -46,19 +90,16 @@ export function useChessGame({ mode, aiLevel = 5, roomId, userId }: UseChessGame
         }
       };
     } catch {
-      console.log("Stockfish not available, using random moves");
+      console.log("Stockfish not available");
     }
-
     return () => stockfishRef.current?.terminate();
   }, [mode, aiLevel]);
 
   // Multiplayer realtime
   useEffect(() => {
     if (mode !== "multiplayer" || !roomId) return;
-
     const channel = supabase.channel(`game:${roomId}`);
     channelRef.current = channel;
-
     channel
       .on("broadcast", { event: "move" }, ({ payload }: { payload: { fen: string; from: string; to: string; pgn: string } }) => {
         chess.load(payload.fen);
@@ -79,15 +120,12 @@ export function useChessGame({ mode, aiLevel = 5, roomId, userId }: UseChessGame
           setStatus("playing");
         }
       });
-
     return () => { channel.unsubscribe(); };
   }, [mode, roomId]);
 
   const updateHistory = useCallback(() => {
     setHistory([...chess.history({ verbose: true })]);
     setPgn(chess.pgn());
-
-    // Update captured pieces
     const board = chess.board();
     const allPieces = board.flat().filter(Boolean);
     const wCap: string[] = [];
@@ -111,6 +149,7 @@ export function useChessGame({ mode, aiLevel = 5, roomId, userId }: UseChessGame
 
   const checkGameEnd = useCallback(() => {
     if (chess.isGameOver()) {
+      clearInterval(timerRef.current!);
       setStatus("ended");
       if (chess.isCheckmate()) {
         const winner = chess.turn() === "w" ? "Black" : "White";
@@ -129,12 +168,17 @@ export function useChessGame({ mode, aiLevel = 5, roomId, userId }: UseChessGame
       const result = chess.move(move);
       if (!result) return false;
 
+      // Add increment after move
+      if (timeControl?.increment) {
+        if (result.color === "w") setWhiteTime(t => t + timeControl.increment);
+        else setBlackTime(t => t + timeControl.increment);
+      }
+
       setFen(chess.fen());
       setLastMove({ from: move.from, to: move.to });
       updateHistory();
       checkGameEnd();
 
-      // Broadcast in multiplayer
       if (mode === "multiplayer" && channelRef.current) {
         channelRef.current.send({
           type: "broadcast",
@@ -143,7 +187,6 @@ export function useChessGame({ mode, aiLevel = 5, roomId, userId }: UseChessGame
         });
       }
 
-      // Trigger AI
       if (mode === "ai" && !chess.isGameOver()) {
         const isPlayerTurn =
           (playerColor === "white" && chess.turn() === "b") ||
@@ -156,7 +199,6 @@ export function useChessGame({ mode, aiLevel = 5, roomId, userId }: UseChessGame
               const depth = Math.min(aiLevel * 2, 20);
               stockfishRef.current.postMessage(`go depth ${depth}`);
             } else {
-              // Fallback: random move
               const moves = chess.moves({ verbose: true });
               if (moves.length > 0) {
                 const randomMove = moves[Math.floor(Math.random() * moves.length)];
@@ -172,9 +214,10 @@ export function useChessGame({ mode, aiLevel = 5, roomId, userId }: UseChessGame
     } catch {
       return false;
     }
-  }, [chess, mode, playerColor, aiLevel, updateHistory, checkGameEnd]);
+  }, [chess, mode, playerColor, aiLevel, timeControl, updateHistory, checkGameEnd]);
 
   const resetGame = useCallback(() => {
+    clearInterval(timerRef.current!);
     chess.reset();
     setFen(chess.fen());
     setHistory([]);
@@ -185,22 +228,14 @@ export function useChessGame({ mode, aiLevel = 5, roomId, userId }: UseChessGame
     setCapturedWhite([]);
     setCapturedBlack([]);
     setPgn("");
-  }, [chess]);
+    setWhiteTime(initialTime);
+    setBlackTime(initialTime);
+  }, [chess, initialTime]);
 
   return {
-    fen,
-    history,
-    status,
-    playerColor,
-    capturedWhite,
-    capturedBlack,
-    lastMove,
-    isAIThinking,
-    gameResult,
-    pgn,
-    makeMove,
-    resetGame,
-    isCheck: chess.inCheck(),
-    turn: chess.turn(),
+    fen, history, status, playerColor, capturedWhite, capturedBlack,
+    lastMove, isAIThinking, gameResult, pgn, makeMove, resetGame,
+    isCheck: chess.inCheck(), turn: chess.turn(),
+    whiteTime, blackTime,
   };
 }
