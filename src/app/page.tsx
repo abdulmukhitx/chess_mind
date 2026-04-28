@@ -1,3 +1,5 @@
+"use client";
+import { motion } from "framer-motion";
 import Link from "next/link";
 import { Navbar } from "@/components/ui/Navbar";
 import { Trophy, Brain, Zap, Users, Crown, ChevronRight } from "lucide-react";
@@ -8,14 +10,17 @@ export default function HomePage() {
       <Navbar />
 
       {/* Hero */}
-      <section style={{
-        maxWidth: 1200,
-        margin: "0 auto",
-        padding: "80px 24px 60px",
-        textAlign: "center",
-        position: "relative",
-      }}>
-        {/* Background glow */}
+      <motion.section
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        style={{
+          maxWidth: 1200,
+          margin: "0 auto",
+          padding: "80px 24px 60px",
+          textAlign: "center",
+          position: "relative",
+        }}>
         <div style={{
           position: "absolute",
           top: "50%",
@@ -84,60 +89,49 @@ export default function HomePage() {
             </Link>
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Features */}
-      <section style={{ maxWidth: 1200, margin: "0 auto", padding: "60px 24px" }}>
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.2 }}
+        style={{ maxWidth: 1200, margin: "0 auto", padding: "60px 24px" }}>
         <div style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
           gap: 20,
         }}>
-          <FeatureCard
-            icon={<Brain size={28} />}
-            title="AI Coach"
+          <FeatureCard icon={<Brain size={28} />} title="AI Coach"
             desc="After every game, get a detailed breakdown of your mistakes and suggested improvements — like having a grandmaster in your pocket."
-            color="#F59E0B"
-          />
-          <FeatureCard
-            icon={<Users size={28} />}
-            title="Live Multiplayer"
+            color="#F59E0B" />
+          <FeatureCard icon={<Users size={28} />} title="Live Multiplayer"
             desc="Challenge friends with a link. Real-time moves via WebSockets. No account needed for your opponent."
-            color="#3B82F6"
-          />
-          <FeatureCard
-            icon={<Zap size={28} />}
-            title="Play vs AI"
+            color="#3B82F6" />
+          <FeatureCard icon={<Zap size={28} />} title="Play vs AI"
             desc="Face Stockfish at any difficulty from beginner to grandmaster level. Improve at your own pace."
-            color="#22C55E"
-          />
-          <FeatureCard
-            icon={<Trophy size={28} />}
-            title="Global Leaderboard"
+            color="#22C55E" />
+          <FeatureCard icon={<Trophy size={28} />} title="Global Leaderboard"
             desc="Compete for the top spot. Rankings by city — see who the best player in Almaty, Astana, or Moscow is."
-            color="#EF4444"
-          />
+            color="#EF4444" />
         </div>
-      </section>
+      </motion.section>
 
       {/* Pro upgrade CTA */}
-      <section style={{ maxWidth: 1200, margin: "0 auto", padding: "40px 24px 80px" }}>
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.4 }}
+        style={{ maxWidth: 1200, margin: "0 auto", padding: "40px 24px 80px" }}>
         <div className="glass-card-gold" style={{ padding: "48px", textAlign: "center", position: "relative", overflow: "hidden" }}>
           <div style={{
-            position: "absolute",
-            top: -100,
-            right: -100,
-            width: 300,
-            height: 300,
+            position: "absolute", top: -100, right: -100, width: 300, height: 300,
             background: "radial-gradient(circle, rgba(245,158,11,0.08) 0%, transparent 70%)",
           }} />
           <Crown size={40} style={{ color: "var(--gold)", marginBottom: 16 }} />
-          <h2 style={{
-            fontFamily: "'Playfair Display', serif",
-            fontSize: 36,
-            fontWeight: 700,
-            marginBottom: 12,
-          }}>Upgrade to Pro</h2>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, fontWeight: 700, marginBottom: 12 }}>
+            Upgrade to Pro
+          </h2>
           <p style={{ color: "var(--text-secondary)", fontSize: 17, marginBottom: 32, maxWidth: 480, margin: "0 auto 32px" }}>
             Unlimited AI analysis, custom piece skins, advanced stats, and priority matchmaking.
           </p>
@@ -154,7 +148,7 @@ export default function HomePage() {
             </button>
           </Link>
         </div>
-      </section>
+      </motion.section>
 
       {/* Footer */}
       <footer style={{
@@ -173,22 +167,22 @@ export default function HomePage() {
 
 function FeatureCard({ icon, title, desc, color }: { icon: React.ReactNode; title: string; desc: string; color: string }) {
   return (
-    <div className="glass-card" style={{ padding: 28 }}>
+    <motion.div
+      className="glass-card"
+      whileHover={{ translateY: -4, boxShadow: `0 12px 32px ${color}20` }}
+      transition={{ duration: 0.2 }}
+      style={{ padding: 28 }}
+    >
       <div style={{
-        width: 52,
-        height: 52,
-        borderRadius: 14,
+        width: 52, height: 52, borderRadius: 14,
         background: `${color}15`,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        marginBottom: 16,
-        color,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        marginBottom: 16, color,
       }}>
         {icon}
       </div>
       <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, marginBottom: 10 }}>{title}</h3>
       <p style={{ color: "var(--text-secondary)", lineHeight: 1.6, fontSize: 14 }}>{desc}</p>
-    </div>
+    </motion.div>
   );
 }
