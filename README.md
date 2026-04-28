@@ -2,66 +2,71 @@
 
 > Play chess, get smarter. AI-powered coaching after every game.
 
-**Live Demo:** https://chess-mind-three.vercel.app/  
-**Tech Stack:** Next.js 14 · TypeScript · Supabase · Claude AI · Stockfish
+**Live Demo:** [chess-mind-three.vercel.app](https://chess-mind-three.vercel.app/)
+
+![Next.js](https://img.shields.io/badge/Next.js_14-black?style=flat-square&logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-black?style=flat-square&logo=vercel)
 
 ---
 
 ## What is ChessMind?
 
-ChessMind is a modern chess platform built for players who want to **actually improve** — not just play games and forget them. After every game, our AI Coach (powered by Claude) analyzes your moves, finds your mistakes, explains why they were mistakes, and gives you concrete lessons to improve.
+ChessMind is a modern chess platform built for players who want to actually **improve** — not just play games and forget them.
 
-### Who is it for?
-
-- Chess beginners who want to learn faster
-- Intermediate players stuck at a plateau
-- Anyone who wants personalized feedback without paying for a coach
-
-### Why is it valuable?
-
-Traditional chess apps let you play. ChessMind makes you **grow**. The AI Coach feature turns every game into a learning session.
+After every game, the **AI Coach** (powered by Claude) analyzes your moves, identifies key mistakes, explains *why* they were mistakes, and gives you concrete lessons to work on. Traditional chess apps let you play. ChessMind makes you grow.
 
 ---
 
 ## Features
 
-### Level: GREAT ✨
-
+### Gameplay
 | Feature | Status |
-|---------|--------|
+|---|---|
 | Full chess rules (castling, en passant, checkmate, stalemate) | ✅ |
-| Play vs AI (Stockfish, 6 difficulty levels) | ✅ |
-| Live multiplayer via share link (WebSockets / Supabase Realtime) | ✅ |
-| **AI Coach** — post-game analysis with Claude | ✅ |
+| Play vs AI — Stockfish engine, 6 difficulty levels | ✅ |
+| Time controls — Bullet (1+0), Blitz (3+0, 5+0), Rapid (10+0, 10+5), Unlimited | ✅ |
+| Live multiplayer via share link (Supabase Realtime) | ✅ |
+| Local 2-player mode | ✅ |
+
+### AI Coach (post-game analysis)
+| Feature | Status |
+|---|---|
+| Performance score 0–100 | ✅ |
+| Key moment detection — brilliant moves, mistakes, blunders | ✅ |
+| Opening identification | ✅ |
+| 3 personalized lessons to practice | ✅ |
+| Powered by Claude (Anthropic) | ✅ |
+
+### Platform
+| Feature | Status |
+|---|---|
 | User authentication (sign up / sign in) | ✅ |
+| ELO-based rating system | ✅ |
 | Game history saved to database | ✅ |
 | Global leaderboard with city filter | ✅ |
+| User profiles & stats | ✅ |
 | Dark / Light theme | ✅ |
 | Mobile responsive design | ✅ |
-| **Upgrade to Pro** monetization page | ✅ |
-| Rating system (ELO-based) | ✅ |
-
-### AI Coach Features
-- **Performance score** (0–100) for each game
-- **Key moment detection** — brilliant moves, mistakes, blunders
-- **Opening identification** — learn what opening you played
-- **3 personalized lessons** — specific things to practice
-- Powered by Claude (Anthropic)
+| Freemium monetization (Pro tier) | ✅ |
 
 ---
 
 ## Tech Stack
 
-- **Framework:** Next.js 14 (App Router)
-- **Language:** TypeScript
-- **Styling:** Tailwind CSS + custom CSS variables
-- **Chess Logic:** chess.js (full rule validation)
-- **Chess Board:** react-chessboard
-- **AI Engine:** Stockfish 16 (via Web Worker)
-- **AI Coach:** Claude (Anthropic API)
-- **Database & Auth:** Supabase (PostgreSQL + Auth + Realtime)
-- **Deployment:** Vercel
-- **Fonts:** Playfair Display + DM Sans
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 14 (App Router) |
+| Language | TypeScript |
+| Styling | Tailwind CSS + CSS variables |
+| Chess Logic | chess.js |
+| Chess Board | react-chessboard |
+| AI Engine | Stockfish 16 (Web Worker) |
+| AI Coach | Claude API (Anthropic) |
+| Database & Auth | Supabase (PostgreSQL + Auth + Realtime) |
+| Deployment | Vercel |
+| Fonts | Playfair Display + DM Sans |
 
 ---
 
@@ -80,11 +85,11 @@ npm install
 1. Create a free account at [supabase.com](https://supabase.com)
 2. Create a new project
 3. Go to **SQL Editor** → paste and run `supabase-schema.sql`
-4. Copy your **Project URL** and **anon key** from Settings → API
+4. Copy your Project URL and anon key from **Settings → API**
 
-### 3. Get your API keys
+### 3. Get API keys
 
-- **Supabase:** Settings → API → copy URL and anon key
+- **Supabase:** Settings → API → Project URL + anon key
 - **Anthropic:** [console.anthropic.com](https://console.anthropic.com) → API Keys
 
 ### 4. Configure environment variables
@@ -93,8 +98,7 @@ npm install
 cp .env.local.example .env.local
 ```
 
-Edit `.env.local`:
-```
+```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ANTHROPIC_API_KEY=sk-ant-...
@@ -102,7 +106,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 ### 5. Add Stockfish
 
-Download `stockfish.js` from [stockfishchess.org](https://stockfishchess.org/download/) and place it in `/public/stockfish.js`.
+Download `stockfish.js` from [stockfishchess.org](https://stockfishchess.org) and place it in `/public/stockfish.js`.
 
 ### 6. Run locally
 
@@ -121,29 +125,7 @@ npm install -g vercel
 vercel
 ```
 
-Add the same environment variables in Vercel project settings.
-
----
-
-## Monetization Strategy
-
-ChessMind has a built-in **freemium model**:
-
-- **Free tier:** 3 AI analyses per day, standard pieces, all game modes
-- **Pro — $9/month:** Unlimited AI analysis, 10+ custom piece themes, advanced stats, priority matchmaking
-
-The upgrade page is fully designed and ready to connect to Stripe.
-
----
-
-## Business Potential
-
-| Metric | Estimate |
-|--------|----------|
-| Target users | Chess learners (500M+ worldwide) |
-| Conversion rate | 3-5% free → Pro |
-| Revenue at 1,000 MAU | ~$270-450/mo |
-| Revenue at 10,000 MAU | ~$2,700-4,500/mo |
+Add the same environment variables in your Vercel project settings.
 
 ---
 
@@ -153,25 +135,60 @@ The upgrade page is fully designed and ready to connect to Stripe.
 src/
 ├── app/
 │   ├── page.tsx          # Landing page
-│   ├── play/             # Game page (mode selection + board)
+│   ├── play/             # Game page — mode selection + board
 │   ├── leaderboard/      # Global rankings
 │   ├── profile/          # User profile & stats
 │   ├── upgrade/          # Pro subscription page
 │   ├── auth/             # Sign in / Sign up
 │   └── api/
-│       └── analyze/      # AI Coach endpoint
+│       └── analyze/      # AI Coach endpoint (Claude)
 ├── components/
 │   ├── chess/
-│   │   ├── ChessGame.tsx # Main game component
+│   │   ├── ChessGame.tsx # Main game component + clocks
 │   │   └── AICoach.tsx   # Post-game analysis UI
 │   └── ui/
 │       ├── Navbar.tsx
 │       └── ThemeProvider.tsx
 ├── hooks/
-│   └── useChessGame.ts   # Game logic + Stockfish + Multiplayer
+│   └── useChessGame.ts   # Game logic + Stockfish + Multiplayer + Timers
 └── lib/
-    └── supabase.ts        # DB client + types
+    └── supabase.ts       # DB client + types
 ```
+
+---
+
+## Monetization
+
+ChessMind uses a freemium model:
+
+| | Free | Pro — $9/mo |
+|---|---|---|
+| AI analyses | 3 per day | Unlimited |
+| Game modes | All | All |
+| Piece themes | Standard | 10+ custom |
+| Game statistics | Basic | Detailed |
+| Matchmaking | Standard | Priority |
+| Leaderboard | ✅ | ✅ + Pro badge |
+
+### Business Potential
+
+| Metric | Estimate |
+|---|---|
+| Target market | 500M+ chess players worldwide |
+| Conversion rate | 3–5% free → Pro |
+| Revenue at 1,000 MAU | ~$270–450/mo |
+| Revenue at 10,000 MAU | ~$2,700–4,500/mo |
+
+---
+
+## Roadmap
+
+- [ ] Payment integration
+- [ ] Puzzle trainer mode
+- [ ] Opening explorer
+- [ ] Game review with engine lines
+- [ ] Tournament brackets
+- [ ] Mobile app (React Native)
 
 ---
 
